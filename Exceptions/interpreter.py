@@ -47,6 +47,16 @@ def eval_Lif(prog: Module) -> List[int]:
                 case While(test, body):
                     while eval_e(test, env):
                         eval_stmts(body, env)
+                case Raise(error_code):
+                    pass
+                case Try(body=body, handlers=handlers):
+                    except_body = handlers[0].body
+                    for inner_stmt in body:
+                        if isinstance(inner_stmt, Raise):
+                            eval_stmts(except_body, env)
+                            break
+                        else:
+                            eval_stmts([inner_stmt], env)
                 case _:
                     raise Exception('eval_stmts', dump(stmt))
         

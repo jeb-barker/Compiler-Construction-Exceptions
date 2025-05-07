@@ -12,7 +12,7 @@ import print_x86defs
 
 comparisons = ['eq', 'gt', 'gte', 'lt', 'lte']
 gensym_num = 0
-global_logging = True
+global_logging = False
 
 tuple_var_types = {}
 function_names = set()
@@ -174,6 +174,12 @@ def typecheck(program: Program) -> Program:
                     assert t_e == env[x]
                 else:
                     env[x] = t_e
+            case Raise(error_code):
+                t_e = tc_exp(error_code, env)
+                return t_e
+            case TryExcept(try_body, except_body):
+                tc_stmts(try_body, env)
+                tc_stmts(except_body, env)
             case _:
                 raise Exception('tc_stmt', s)
 
@@ -239,6 +245,13 @@ def rco(prog: Program) -> Program:
                 new_condition = Begin(condition_stmts, condition_exp)
                 new_body_stmts = rco_stmts(body_stmts)
                 return While(new_condition, new_body_stmts)
+            case Raise(error_code):
+                raise_exp = rco_exp(error_code, new_stmts)
+                return Raise(raise_exp)
+            case TryExcept(try_body, except_body):
+                try_stmts = rco_stmts(try_body)
+                except_stmts = rco_stmts(except_body)
+                return TryExcept(try_stmts, except_stmts)
             case _:
                 raise Exception('rco_stmt', stmt)
 
@@ -408,6 +421,25 @@ def _explicate_control(current_function: str, prog: Program) -> cif.CProgram:
                                                    cif.Goto(continuation_label)))
                 add_stmt(label, cif.Goto(test_label))
                 return continuation_label
+            case Raise(error_code):
+                error_exp = explicate_exp(error_code)
+                add_stmt(label, cif.Raise(error_exp))
+                return label
+            case TryExcept(try_body, except_body):
+                # create labels
+                try_label = create_block()
+                except_label = create_block()
+                continuation_label = create_block()
+
+                try_continuation = explicate_stmts(try_body, try_label)
+                # goto the continuation at the end of the try block
+                add_stmt(try_continuation, cif.Goto(continuation_label))
+
+                except_continuation = explicate_stmts(except_body, except_label)
+                # goto the continuation label at the end of the except block
+                add_stmt(except_continuation, cif.Goto(continuation_label))
+                add_stmt(label, cif.TryExcept(cif.Goto(try_label), cif.Goto(except_label)))
+                return continuation_label
             case _:
                 raise Exception('explicate_stmt', stmt)
 
@@ -482,6 +514,9 @@ def _select_instructions(current_function: str, prog: cif.CProgram) -> x86.X86Pr
     :return: a pseudo-x86 program
     """
 
+    # This variable keeps track of the most recent try/except labels
+    try_except = []
+
     def mk_tag(types: Tuple[type]) -> int:
         """
         Builds a vector tag. See section 5.2.2 in the textbook.
@@ -522,9 +557,12 @@ def _select_instructions(current_function: str, prog: cif.CProgram) -> x86.X86Pr
 
     def si_stmts(stmts: List[cif.Stmt]) -> List[x86.Instr]:
         instrs = []
-
+        popped = False
         for stmt in stmts:
             instrs.extend(si_stmt(stmt))
+            if isinstance(stmt, cif.Raise) and not popped:
+                try_except.pop() if len(try_except) > 0 else None
+                popped = True
 
         return instrs
 
@@ -605,6 +643,16 @@ def _select_instructions(current_function: str, prog: cif.CProgram) -> x86.X86Pr
                 return [x86.Cmpq(si_expr(a), x86.Immediate(1)),
                         x86.JmpIf('e', then_label),
                         x86.Jmp(else_label)]
+            case cif.Raise(error_code):
+                if len(try_except) > 0:
+                    except_label = try_except[len(try_except) - 1][1]
+                    return [x86.Movq(si_expr(error_code), x86.Reg('rax')), x86.Jmp(except_label)]
+                else:
+                    # unhandled exception, just ignore this raise, since we've already raised before (or the user has an error in their code)
+                    return []
+            case cif.TryExcept(cif.Goto(try_label), cif.Goto(except_label)):
+                try_except.append((try_label, except_label))
+                return [x86.Jmp(try_label)]
             case _:
                 raise Exception('si_stmt', stmt)
 

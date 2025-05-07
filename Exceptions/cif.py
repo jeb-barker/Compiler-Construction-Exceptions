@@ -66,6 +66,15 @@ class If(Stmt):
     then_branch: Goto
     else_branch: Goto
 
+@dataclass(frozen=True, eq=True)
+class Raise(Stmt):
+    error_code: Expr
+
+@dataclass(frozen=True, eq=True)
+class TryExcept(Stmt):
+    try_block: Goto
+    else_branch: Goto
+
 ##################################################
 # @dataclass(frozen=True, eq=True)
 # class CProgram(AST):
@@ -110,6 +119,10 @@ def print_program(program: CProgram):
                 return f'goto {l}'
             case If(condition, then_branch, else_branch):
                 return f'if {print_exp(condition)}: goto {then_branch.label} else: goto {else_branch.label}'
+            case Raise(error_exp):
+                return f'raise {print_exp(error_exp)}'
+            case TryExcept(try_block, except_block):
+                return f'try: {try_block.label} except: {except_block.label}'
             case _:
                 raise Exception('unknown statement:', s)
 

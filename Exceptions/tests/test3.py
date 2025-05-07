@@ -1,4 +1,11 @@
-def add_if(n: int, x: int, y: int) -> int:
-    return n + x + y
+def except_if_1(n: int) -> int:
+    try:
+        if n == 1:
+            raise 1
+    except:
+        return 0
 
-print(add_if(5, 6, 8))
+try:
+    a = except_if_1(1)
+except:
+    print(1)

@@ -1,7 +1,15 @@
-def fib(n: int) -> int:
-    if n <= 1:
-        return n
-    else:
-        return fib(n-1) + fib(n-2)
-
-print(fib(10))
+print(1)
+try:
+    print(2)
+    raise 2
+    print(3)
+except:
+    print(4)
+    try:
+        print(5)
+        raise 5
+        print(6)
+    except:
+        print(7)
+    print(8)
+print(9)

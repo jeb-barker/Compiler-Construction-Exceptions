@@ -1,7 +1,8 @@
-def fact(n: int) -> int:
-    if n == 0:
-        return 1
-    else:
-        return n * fact(n-1)
-
-print(fact(5))
+try:
+    print(1)
+    try:
+        raise 5
+    except:
+        print(12)
+except:
+    print(5)

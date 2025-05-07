@@ -52,12 +52,12 @@ def print_program(p):
                 fields = '\n'.join([f'    {x}: {print_type(t)}' for x, t in body])
                 return decl + fields
             case Raise(error_code):
-                return f'raise ({error_code})\n'
+                return (' '*indent) + f'raise {print_expr(error_code)}\n'
             case TryExcept(try_body, except_body):
-                try_decl = 'try:\n'
-                try_stmts = '\n'.join([f'    {x}: {print_type(t)}' for x, t in try_body])
-                except_decl = 'try:\n'
-                except_stmts = '\n'.join([f'    {x}: {print_type(t)}' for x, t in except_body])
+                try_decl = (' '*indent) + 'try:\n'
+                try_stmts = '\n'.join([print_stmt(s, indent+4) for s in try_body])
+                except_decl = '\n' + (' '*indent) + 'except:\n'
+                except_stmts = '\n'.join([print_stmt(s, indent+4) for s in except_body])
                 return try_decl + try_stmts + except_decl + except_stmts
             case _:
                 raise Exception('print_stmt', s)

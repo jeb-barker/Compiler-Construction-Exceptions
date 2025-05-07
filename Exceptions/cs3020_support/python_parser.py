@@ -71,6 +71,13 @@ def parse(s):
             case ast.ClassDef(name, [ast.Name(x)], [], decls, []):
                 new_decls = [] if ast.Pass() in decls else [trans_classdef(d) for d in decls]
                 return ClassDef(name, x, new_decls)
+            case ast.Raise(error_code):
+                return Raise(trans_expr(error_code))
+            case ast.Try(body=body, handlers=handlers):
+                new_try_stmts = trans_stmts(body)
+                except_body = handlers[0].body
+                new_except_stmts = trans_stmts(except_body)
+                return TryExcept(try_body=new_try_stmts, except_body= new_except_stmts)
             case _:
                 raise Exception('trans_stmt', s)
     def trans_expr(e):
